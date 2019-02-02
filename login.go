@@ -1,7 +1,6 @@
 package lineapi
 
 import (
-	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/mopeneko/linethrift"
 )
 
@@ -17,6 +16,7 @@ func NewLineClient(authToken string) (*linethrift.TalkServiceClient, error) {
 	}
 	client, err := NewThriftClient(HOST + TALKSERVICE_ENDPOINT, headers)
 	talk := linethrift.NewTalkServiceClient(client)
+	talk.AuthToken = authToken
 	if err != nil {
 		return nil, err
 	}

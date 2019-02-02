@@ -2,7 +2,6 @@ package lineapi
 
 import (
 	"github.com/apache/thrift/lib/go/thrift"
-	"github.com/mopeneko/linethrift"
 )
 
 // Generate thrift.TTransport
