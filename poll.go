@@ -7,13 +7,13 @@ import (
 	"github.com/mopeneko/linethrift"
 )
 
-type PollingController struct {
+type PollingManager struct {
 	Talk *linethrift.TalkServiceClient
 	Poll *linethrift.TalkServiceClient
 	Processors map[linethrift.OpType]interface{}
 }
 
-func NewPollingController(talk *linethrift.TalkServiceClient) (*PollingController, error) {
+func NewPollingManager(talk *linethrift.TalkServiceClient) (*PollingManager, error) {
 	headers := map[string]string{
 		"User-Agent": USER_AGENT,
 		"X-Line-Application": LINE_APP,
@@ -27,15 +27,15 @@ func NewPollingController(talk *linethrift.TalkServiceClient) (*PollingControlle
 	if err != nil {
 		return nil, err
 	}
-	pollcon := &PollingController{talk, poll, map[linethrift.OpType]interface{}{}}
+	pollcon := &PollingManager{talk, poll, map[linethrift.OpType]interface{}{}}
 	return pollcon, nil
 }
 
-func (p *PollingController) SetOperationProcessor(opType linethrift.OpType, processor interface{}) {
+func (p *PollingManager) SetOperationProcessor(opType linethrift.OpType, processor interface{}) {
 	p.Processors[opType] = processor
 }
 
-func (p *PollingController) ProcessOperations(isLogged bool) {
+func (p *PollingManager) ProcessOperations(isLogged bool) {
 	var revision int64 = 0
 	ctx := context.Background()
 	var err error
@@ -79,10 +79,10 @@ func (p *PollingController) ProcessOperations(isLogged bool) {
 	}
 }
 
-func (p *PollingController) StartPolling() {
+func (p *PollingManager) StartPolling() {
 	p.ProcessOperations(false)
 }
 
-func (p *PollingController) StartPollingWithLogging() {
+func (p *PollingManager) StartPollingWithLogging() {
 	p.ProcessOperations(true)
 }
