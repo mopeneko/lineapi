@@ -60,7 +60,6 @@ func (p *PollingManager) ProcessOperations(isLogged bool) {
 				panic("Your token had been expired.")
 			}
 			revision = newRevision
-			log.Printf("error: %v", err)
 			continue
 		}
 		for _, operation := range operations {
