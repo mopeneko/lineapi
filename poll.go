@@ -2,86 +2,71 @@ package lineapi
 
 import (
 	"context"
+	"fmt"
 	"log"
-	"github.com/comail/colog"
+
+	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/mopeneko/linethrift"
 )
 
 type PollingManager struct {
-	Talk *linethrift.TalkServiceClient
-	Poll *linethrift.TalkServiceClient
-	Processors map[linethrift.OpType]interface{}
+	Talk       *linethrift.TalkServiceClient
+	Poll       *linethrift.TalkServiceClient
+	Processors map[linethrift.OpType]func(*linethrift.Operation)
+	Transport  *thrift.THttpClient
 }
 
 func NewPollingManager(talk *linethrift.TalkServiceClient) (*PollingManager, error) {
 	headers := map[string]string{
-		"User-Agent": USER_AGENT,
+		"User-Agent":         USER_AGENT,
 		"X-Line-Application": LINE_APP,
-		"X-Line-Access": talk.AuthToken,
-		"x-lpqs": "/P4",
-		"X-LPV": "1",
-		"X-LHM": "POST",
+		"X-Line-Access":      talk.AuthToken,
 	}
-	client, err := NewThriftClient(HOST + POLLING_ENDPOINT, headers)
+	client, transport, err := NewThriftClient(HOST+POLLING_ENDPOINT, headers)
 	poll := linethrift.NewTalkServiceClient(client)
 	if err != nil {
 		return nil, err
 	}
-	pollcon := &PollingManager{talk, poll, map[linethrift.OpType]interface{}{}}
+	pollcon := &PollingManager{talk, poll, map[linethrift.OpType]func(*linethrift.Operation){}, transport}
 	return pollcon, nil
 }
 
-func (p *PollingManager) SetOperationProcessor(opType linethrift.OpType, processor interface{}) {
+func (p *PollingManager) SetOperationProcessor(opType linethrift.OpType, processor func(*linethrift.Operation)) {
 	p.Processors[opType] = processor
 }
 
-func (p *PollingManager) ProcessOperations(isLogged bool) {
+func (p *PollingManager) StartPolling() {
 	var revision int64 = 0
 	ctx := context.Background()
 	var err error
 	revision, err = p.Talk.GetLastOpRevision(ctx)
 	if err != nil {
+		log.Fatal(err.Error())
 		panic("Your token had been expired.")
 	}
-	var operations []*linethrift.Operation
-	colog.SetDefaultLevel(colog.LDebug)
-	colog.SetMinLevel(colog.LTrace)
-	colog.SetFormatter(&colog.StdFormatter{
-		Colors:	true,
-    	Flag:	log.Ldate | log.Ltime | log.Lshortfile,
-	})
-	colog.Register()
+	var ops []*linethrift.Operation
 	log.Printf("info: Started polling")
 	for {
-		operations, err = p.Poll.FetchOperations(ctx, revision, 100)
+		ops, err = p.Poll.FetchOperations(ctx, revision, 100)
 		if err != nil {
-			newRevision, err := p.Talk.GetLastOpRevision(ctx)
-			if err != nil {
-				panic("Your token had been expired.")
-			}
-			revision = newRevision
+			fmt.Println(err)
+			revision, _ = p.Talk.GetLastOpRevision(ctx)
 			continue
 		}
-		for _, operation := range operations {
-			if isLogged {
-				log.Printf("debug: [%d]\t%s", int64(operation.Type), operation.Type.String())
+		for _, op := range ops {
+			if op.Type == linethrift.OpType_END_OF_OPERATION {
+				continue
 			}
-			if operation.Type != linethrift.OpType_END_OF_OPERATION {
-				if processor, isContain := p.Processors[operation.Type]; isContain {
-					processor.(func(*linethrift.Operation))(operation)
-				}
-				if revision < operation.Revision {
-					revision = operation.Revision
-				}
+			if receiver, ok := p.Processors[op.Type]; ok {
+				receiver(op)
+			}
+			if revision < op.Revision {
+				revision = op.Revision
 			}
 		}
 	}
 }
 
-func (p *PollingManager) StartPolling() {
-	p.ProcessOperations(false)
-}
-
-func (p *PollingManager) StartPollingWithLogging() {
-	p.ProcessOperations(true)
+func (p *PollingManager) UpdateToken(token string) {
+	p.Transport.SetHeader("X-Line-Access", token)
 }
