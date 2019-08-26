@@ -27,7 +27,7 @@ func NewLineClient_(authToken string) (*linethrift.TalkServiceClient, *thrift.TH
 		"X-Line-Application": LINE_APP,
 		"X-Line-Access":      authToken,
 	}
-	client, transport, err := NewThriftClient(HOST+TALKSERVICE_ENDPOINT, headers)
+	client, transport, err := NewThriftClientForLP(HOST+TALKSERVICE_ENDPOINT, headers)
 	talk := linethrift.NewTalkServiceClient(client)
 	talk.AuthToken = authToken
 	if err != nil {
