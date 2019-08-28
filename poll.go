@@ -13,21 +13,20 @@ type PollingManager struct {
 	Talk       *linethrift.TalkServiceClient
 	Poll       *linethrift.TalkServiceClient
 	Processors map[linethrift.OpType]func(*linethrift.Operation)
-	Transport  *thrift.THttpClient
 }
 
-func NewPollingManager(talk *linethrift.TalkServiceClient) (*PollingManager, error) {
+func NewPollingManager(talk *linethrift.TalkServiceClient, options thrift.THttpClientOptions) (*PollingManager, error) {
 	headers := map[string]string{
 		"User-Agent":         USER_AGENT,
 		"X-Line-Application": LINE_APP,
 		"X-Line-Access":      talk.AuthToken,
 	}
-	client, transport, err := NewThriftClient(HOST+POLLING_ENDPOINT, headers)
+	client, err := NewThriftClient(HOST+POLLING_ENDPOINT, headers, options)
 	poll := linethrift.NewTalkServiceClient(client)
 	if err != nil {
 		return nil, err
 	}
-	pollcon := &PollingManager{talk, poll, map[linethrift.OpType]func(*linethrift.Operation){}, transport}
+	pollcon := &PollingManager{talk, poll, map[linethrift.OpType]func(*linethrift.Operation){}}
 	return pollcon, nil
 }
 
@@ -65,8 +64,4 @@ func (p *PollingManager) StartPolling() {
 			}
 		}
 	}
-}
-
-func (p *PollingManager) UpdateToken(token string) {
-	p.Transport.SetHeader("X-Line-Access", token)
 }
