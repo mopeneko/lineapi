@@ -2,8 +2,9 @@ package lineapi
 
 import (
 	"context"
-	"fmt"
 	"log"
+
+	"golang.org/x/net/http2"
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/mopeneko/linethrift"
@@ -48,8 +49,11 @@ func (p *PollingManager) StartPolling() {
 	for {
 		ops, err = p.Poll.FetchOperations(ctx, revision, 100)
 		if err != nil {
-			fmt.Println(err)
-			revision, _ = p.Talk.GetLastOpRevision(ctx)
+			switch err.(type) {
+			case http2.GoAwayError:
+			default:
+				revision, _ = p.Talk.GetLastOpRevision(ctx)
+			}
 			continue
 		}
 		for _, op := range ops {
